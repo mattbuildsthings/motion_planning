@@ -1,7 +1,19 @@
 ## Motion Planning Library with ROS
 
-Self-directed independent study.
 
+### Dependencies:
+[Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page)
+
+`sudo  apt install libeigen3-dev`
+
+[OSQP](https://osqp.org/docs/get_started/sources.html)
+
+[OSQP-Eigen (C++ wrapper)](https://github.com/robotology/osqp-eigen) - Do the manual install.
+
+Notes for OSQP-Eigen:
+- Choose `/usr/local` in `cmake -DCMAKE_INSTALL_PREFIX:PATH=<custom-folder> ../`
+- Do `sudo ln -s /usr/include/eigen3/Eigen /usr/local/include/Eigen` to make a symbolic link for the Eigen header files so that OSQP-Eigen knows where to find them.
+  
 ### Installation Guide:
 - Make a ROS Workspace: `mkdir -p ws/src`
 - Go to `src` and clone my repo: `cd ws/src/` `git clone git@github.com:moribots/motion_planning.git`
@@ -9,13 +21,7 @@ Self-directed independent study.
 - Initialize `nuturtle.rosinstall` to get my rigid2d library and other utilities: `wstool init src src/motion_planning/nuturtle.rosinstall`
 - Build the workspace: `catkin_make` and source: `source devel/setup.bash`
 
-### OSQP and OSQP-Eigen installation
-[OSQP](https://osqp.org/docs/get_started/sources.html)
-[OSQP-Eigen (C++ wrapper)](https://github.com/robotology/osqp-eigen) - Do the manual install.
 
-Notes for OSQP-Eigen:
-- Choose `/usr/local` in `cmake -DCMAKE_INSTALL_PREFIX:PATH=<custom-folder> ../`
-- Do `sudo ln -s /usr/include/eigen3/Eigen /usr/local/include/Eigen` to make a symbolic link for the Eigen header files so that OSQP-Eigen knows where to find them.
 
 ### In this Repo:
 * The `map` package: `roslaunch map viz_map.launch`
