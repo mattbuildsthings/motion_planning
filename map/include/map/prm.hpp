@@ -49,7 +49,7 @@ namespace map
     {
         Vector2D point; // The point whose shortest distance to a line segment is computed.
         double u; // A point is within a line segment if u is between [0,1]
-        double D; // The signed shotrest distance distance from the point to the line segment.
+        double D; // The signed shortest distance from the point to the line segment.
         // if D > 0, the point is on the left-hand side of the line segment from Vertex 1 to Vertex 2 
     };
 
