@@ -1,4 +1,5 @@
 #include "map/map.hpp"
+#include <ros/ros.h> //for debug
 
 namespace map
 {
@@ -9,7 +10,7 @@ namespace map
 	{
 	}
 
-	Obstacle::Obstacle(const std::vector<Vector2D> & vertices_)
+	Obstacle::Obstacle(const std::vector<Vector2D> &vertices_)
 	{
 		vertices = vertices_;
 	}
@@ -21,7 +22,7 @@ namespace map
 		inflate_robot = 0.2;
 	}
 
-	Map::Map(const std::vector<Obstacle> & obstacles_)
+	Map::Map(const std::vector<Obstacle> &obstacles_)
 	{
 		obstacles = obstacles_;
 
@@ -30,7 +31,7 @@ namespace map
 		inflate_robot = 0.2;
 	}
 
-	Map::Map(const std::vector<Obstacle> & obstacles_, const double inflate_robot_)
+	Map::Map(const std::vector<Obstacle> &obstacles_, const double inflate_robot_)
 	{
 		obstacles = obstacles_;
 
@@ -46,33 +47,53 @@ namespace map
 
 	void Map::find_map_extent()
 	{
-		double x_min, x_max, y_min, y_max = 0;
+		double x_min = 0, x_max = 0, y_min = 0, y_max = 0;
+		bool maxChange = false, minChange = false;
+		map_max = Vector2D(x_max, y_max);
+		map_min = Vector2D(x_min, y_min);
 
-		for (auto obs_iter = obstacles.begin(); obs_iter != obstacles.end(); obs_iter++)
-	    {
+		//go through each obstacle
+		for(const auto & obs : obstacles)
+		{
+			//go through each vertex, base map extent on vertices
+			for (const auto & vert : obs.vertices)
+			{
+				if (vert.x > x_max)
+				{
+					x_max = vert.x;
+					maxChange = true;
+				}
+				else if (vert.x < x_min)
+				{
+					x_min = vert.x;
+					minChange = true;
+				}
 
-			for (auto v_iter = obs_iter->vertices.begin(); v_iter != obs_iter->vertices.end(); v_iter++)
-		    {
-		    	if (v_iter->x > x_max)
-		    	{
-		    		x_max = v_iter->x;
-		    	} else if (v_iter->x < x_min)
-		    	{
-		    		x_min = v_iter->x;
-		    	}
+				if (vert.y > y_max)
+				{
+					y_max = vert.y ;
+					maxChange = true;
+				}
+				else if (vert.y  < y_min)
+				{
+					y_min = vert.y;
+					minChange = true;
+				}
 
-		    	if (v_iter->y > y_max)
-		    	{
-		    		y_max = v_iter->y;
-		    	} else if (v_iter->y < y_min)
-		    	{
-		    		y_min = v_iter->y;
-		    	}
-
-		    	map_max = Vector2D(x_max, y_max);
-		    	map_min = Vector2D(x_min, y_min);
-		    }
+				if (maxChange)
+				{
+					map_max = Vector2D(x_max, y_max);
+					maxChange = false;
+				}
+				if (minChange)
+				{
+					map_min = Vector2D(x_min, y_min);
+					minChange = false;
+				}
+			}
 		}
+		ROS_INFO("Map Max x: %f, y: %f", x_max, y_max);
+		ROS_INFO("Map Min x: %f, y: %f", x_min, y_min);
 	}
 
 	std::vector<Vector2D> Map::return_map_bounds()
@@ -84,9 +105,8 @@ namespace map
 		return v;
 	}
 
-
 	// Helper Functions
-	double euclidean_distance(const double & x_rel, const double & y_rel)
+	double euclidean_distance(const double &x_rel, const double &y_rel)
 	{
 		return sqrt(pow(x_rel, 2) + pow(y_rel, 2));
 	}
