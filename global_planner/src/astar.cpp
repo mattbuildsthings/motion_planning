@@ -52,6 +52,7 @@ struct Params
 
   rigid2d::Vector2D start;
   rigid2d::Vector2D goal;
+
   Params()
   {
     start = rigid2d::Vector2D(start_vec.at(0) / SCALE, start_vec.at(1) / SCALE);
@@ -78,18 +79,8 @@ struct Params
   }
 };
 
-int main(int argc, char **argv)
-/// The Main Function ///
+std::vector<map::Obstacle> GetObstacles(const Params &runParams)
 {
-  ROS_INFO("STARTING NODE: astar");
-
-  ros::init(argc, argv, "astar_node"); // register the node on ROS
-  ros::NodeHandle nh;                  // get a handle to ROS
-  ros::NodeHandle nh_("~");            // get a handle to ROS
-  
-  //Get parameters associated with run, override defaults with ones from launch file
-  Params runParams(nh_);
-
   std::vector<map::Obstacle> obstacles_v;
   // 'obstacles' is a triple-nested list.
   // 1st level: obstacle (Obstacle), 2nd level: vertices (std::vector), 3rd level: coordinates (Vector2D)
@@ -140,27 +131,12 @@ int main(int argc, char **argv)
       obstacles_v.push_back(obs);
     }
   }
+  return obstacles_v;
+}
 
-  // Initialize Marker
-  // Init Marker Array Publisher
-  ros::Publisher map_pub = nh.advertise<visualization_msgs::MarkerArray>("prm", 1);
-  ros::Publisher path_pub = nh.advertise<visualization_msgs::MarkerArray>("path", 1);
-  ros::Publisher debug_pub = nh.advertise<visualization_msgs::MarkerArray>("path_debug", 1);
-  ros::Publisher grid_pub = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
-
-  // Initialize grid_map outside
-  nav_msgs::OccupancyGrid grid_map;
-
-  // rviz representation of the grid
-  std::vector<int8_t> map;
-
-  // Init Marker Array
-  visualization_msgs::MarkerArray map_arr;
-  visualization_msgs::MarkerArray path_arr;
-  visualization_msgs::MarkerArray path_debug;
-
-  // Init Marker
-  visualization_msgs::Marker marker;
+void InitMarkers(visualization_msgs::Marker &marker, visualization_msgs::Marker &sph_mkr,
+                 visualization_msgs::Marker &path_marker, visualization_msgs::Marker &path_sph_mkr, const Params &runParams)
+{
   marker.header.frame_id = runParams.frame_id;
   marker.header.stamp = ros::Time::now();
   // marker.ns = "my_namespace";
@@ -179,7 +155,6 @@ int main(int argc, char **argv)
   marker.color.a = 1.0;
   marker.lifetime = ros::Duration();
 
-  visualization_msgs::Marker sph_mkr;
   sph_mkr = marker;
   sph_mkr.type = visualization_msgs::Marker::SPHERE;
   sph_mkr.scale.x = 0.02;
@@ -196,15 +171,15 @@ int main(int argc, char **argv)
   marker.pose.position.y = 0.0;
 
   // PATH MARKERS
-  visualization_msgs::Marker path_marker;
+
   path_marker = marker;
+
   // More visible than PRM
   path_marker.scale.x = 0.03;
   path_marker.color.r = 0.2;
   path_marker.color.g = 1.0;
   path_marker.color.b = 0.2;
 
-  visualization_msgs::Marker path_sph_mkr;
   path_sph_mkr = sph_mkr;
   // More visible than PRM
   path_sph_mkr.type = visualization_msgs::Marker::CUBE;
@@ -214,217 +189,284 @@ int main(int argc, char **argv)
   path_sph_mkr.color.r = 0.0f;
   path_sph_mkr.color.g = 0.0f;
   path_sph_mkr.color.b = 0.0f;
+}
+
+void BuildPRM(Params &runParams, const std::vector<map::Obstacle> &obstacles_v,
+              visualization_msgs::MarkerArray &map_arr,  //PRM, main while(mw)
+              visualization_msgs::MarkerArray &path_arr, //PRM, Grid, mw
+              visualization_msgs::MarkerArray &path_debug)
+{
+  // Init Marker
+  visualization_msgs::Marker marker;       //PRM, inits sph_mkr, path marker
+  visualization_msgs::Marker sph_mkr;      //PRM, inits path_sph_mkr
+  visualization_msgs::Marker path_marker;  //PRM,Grid
+  visualization_msgs::Marker path_sph_mkr; //PRM,Grid
+
+  InitMarkers(marker, sph_mkr, path_marker, path_sph_mkr, runParams);
+  // A* or Theta* Path
+  std::vector<global::Node> path;
+  // Debug Path (Usually A* to compare with Theta*)
+  std::vector<global::Node> path2;
+  // Build PRM
+  map::PRM prm(obstacles_v, runParams.inflate);
+  prm.build_map(runParams.n, runParams.k, runParams.thresh);
+  
+  // DRAW PRM
+  int prm_marker_id = 0;
+  auto configurations = prm.return_prm();
+  for (auto node_iter = configurations.begin(); node_iter != configurations.end(); node_iter++)
+  {
+    marker.points.clear();
+    marker.id = prm_marker_id;
+    prm_marker_id++;
+
+    // Check if a node has edges before plotting
+    if (node_iter->id_set.size() > 0)
+    {
+      for (auto id_iter = node_iter->id_set.begin(); id_iter != node_iter->id_set.end(); id_iter++)
+      {
+        // Add node as first marker vertex
+        geometry_msgs::Point first_vertex;
+        first_vertex.x = node_iter->coords.x;
+        first_vertex.y = node_iter->coords.y;
+        first_vertex.z = 0.0;
+        marker.points.push_back(first_vertex);
+
+        // Find Vertex for each ID
+        auto neighbor_iter = configurations.at(*id_iter);
+
+        geometry_msgs::Point new_vertex;
+        new_vertex.x = neighbor_iter.coords.x;
+        new_vertex.y = neighbor_iter.coords.y;
+        new_vertex.z = 0.0;
+        marker.points.push_back(new_vertex);
+
+        // Also push back cylinders
+        sph_mkr.pose.position.x = node_iter->coords.x;
+        sph_mkr.pose.position.y = node_iter->coords.y;
+        sph_mkr.id = prm_marker_id;
+        prm_marker_id++;
+        map_arr.markers.push_back(sph_mkr);
+      }
+      // Push to Marker Array
+      map_arr.markers.push_back(marker);
+    }
+  }
+
+  ROS_INFO("PRM Built!");
+
+  // PLAN on PRM using A* or Theta*
+  if (runParams.planner_type == "astar")
+  {
+    ROS_INFO("Planning using A*!");
+    global::Astar astar(obstacles_v, runParams.inflate);
+    path = astar.plan(runParams.start, runParams.goal, configurations);
+  }
+  else
+  {
+    ROS_INFO("Planning using Theta*!");
+    global::Thetastar theta_star(obstacles_v, runParams.inflate);
+    path = theta_star.plan(runParams.start, runParams.goal, configurations);
+    ROS_INFO("Planning using A*!");
+    global::Astar astar(obstacles_v, runParams.inflate);
+    path2 = astar.plan(runParams.start, runParams.goal, configurations);
+  }
+
+  // DRAW PATH
+  int path_marker_id = 0;
+  for (auto path_iter = path.begin(); path_iter != path.end(); path_iter++)
+  {
+    // Add node as marker vertex
+    geometry_msgs::Point vtx;
+    vtx.x = path_iter->vertex.coords.x;
+    vtx.y = path_iter->vertex.coords.y;
+    vtx.z = 0.0;
+    path_marker.points.push_back(vtx);
+
+    // Also push back cylinders
+    path_sph_mkr.pose.position.x = path_iter->vertex.coords.x;
+    path_sph_mkr.pose.position.y = path_iter->vertex.coords.y;
+    path_sph_mkr.id = path_marker_id;
+    path_marker_id++;
+    path_arr.markers.push_back(path_sph_mkr);
+  }
+  path_marker.id = path_marker_id;
+  path_arr.markers.push_back(path_marker);
+
+  // DRAW DEBUG PATH
+  path_marker_id = 0;
+  path_marker.points.clear();
+  path_marker.color.r = 1.0;
+  path_marker.color.g = 0.2;
+  path_marker.color.b = 0.2;
+  for (auto path2_iter = path2.begin(); path2_iter != path2.end(); path2_iter++)
+  {
+    // Add node as marker vertex
+    geometry_msgs::Point vtx;
+    vtx.x = path2_iter->vertex.coords.x;
+    vtx.y = path2_iter->vertex.coords.y;
+    vtx.z = 0.0;
+    path_marker.points.push_back(vtx);
+
+    // Also push back cylinders
+    path_sph_mkr.pose.position.x = path2_iter->vertex.coords.x;
+    path_sph_mkr.pose.position.y = path2_iter->vertex.coords.y;
+    path_sph_mkr.id = path_marker_id;
+    path_marker_id++;
+    path_debug.markers.push_back(path_sph_mkr);
+  }
+  path_marker.id = path_marker_id;
+  path_debug.markers.push_back(path_marker);
+}
+
+void BuildGrid(const Params &runParams, const std::vector<map::Obstacle> &obstacles_v, std::vector<int8_t> &map,
+               nav_msgs::OccupancyGrid &grid_map,
+               visualization_msgs::MarkerArray &path_arr, //PRM, Grid, mw
+               visualization_msgs::MarkerArray &path_debug)
+{
+  // Init Marker
+  visualization_msgs::Marker marker;       //PRM, inits sph_mkr, path marker
+  visualization_msgs::Marker sph_mkr;      //PRM, inits path_sph_mkr
+  visualization_msgs::Marker path_marker;  //PRM,Grid
+  visualization_msgs::Marker path_sph_mkr; //PRM,Grid
 
   // A* or Theta* Path
   std::vector<global::Node> path;
   // Debug Path (Usually A* to compare with Theta*)
   std::vector<global::Node> path2;
 
+  InitMarkers(marker, sph_mkr, path_marker, path_sph_mkr, runParams);
+  // Initialize Grid
+  map::Grid grid(obstacles_v, runParams.inflate);
+
+  // Build Map
+  grid.build_map(runParams.resolution);
+
+  ROS_INFO("Grid Built!");
+
+  // Get map bounds
+  auto bounds = grid.return_map_bounds();
+  auto gridsize = grid.return_grid_dimensions();
+
+  // rviz representation of the grid
+  grid.occupancy_grid(map);
+
+  // Grid Pose
+  geometry_msgs::Pose map_pose;
+  map_pose.position.x = bounds.at(0).x;
+  map_pose.position.y = bounds.at(0).y;
+  map_pose.position.z = 0.0;
+  map_pose.orientation.x = 0.0;
+  map_pose.orientation.y = 0.0;
+  map_pose.orientation.z = 0.0;
+  map_pose.orientation.w = 1.0;
+
+  // Occupancy grid for visualization
+  grid_map.header.frame_id = runParams.frame_id;
+  grid_map.info.resolution = runParams.resolution;
+  grid_map.info.width = gridsize.at(0);
+  grid_map.info.height = gridsize.at(1);
+
+  // std::cout << "Width: " << gridsize.at(0) << "\t Height: " << gridsize.at(1) << std::endl;
+  grid_map.info.origin = map_pose;
+
+  ROS_INFO("Planning using A*!");
+  global::Astar astar(obstacles_v, runParams.inflate);
+  path = astar.plan(runParams.start, runParams.goal, grid, runParams.resolution);
+  path2 = path;
+
+  // DRAW PATH
+  int path_marker_id = 0;
+  for (auto path_iter = path.begin(); path_iter != path.end(); path_iter++)
+  {
+    // Add node as marker cell
+    geometry_msgs::Point vtx;
+    vtx.x = path_iter->cell.coords.x;
+    vtx.y = path_iter->cell.coords.y;
+    vtx.z = 0.0;
+    path_marker.points.push_back(vtx);
+
+    // Also push back cylinders
+    path_sph_mkr.pose.position.x = path_iter->cell.coords.x;
+    path_sph_mkr.pose.position.y = path_iter->cell.coords.y;
+    path_sph_mkr.id = path_marker_id;
+    path_marker_id++;
+    path_arr.markers.push_back(path_sph_mkr);
+  }
+  path_marker.id = path_marker_id;
+  path_arr.markers.push_back(path_marker);
+
+  // DRAW DEBUG PATH
+  path_marker_id = 0;
+  path_marker.points.clear();
+  path_marker.color.r = 1.0;
+  path_marker.color.g = 0.2;
+  path_marker.color.b = 0.2;
+  for (auto path2_iter = path2.begin(); path2_iter != path2.end(); path2_iter++)
+  {
+    // Add node as marker cell
+    geometry_msgs::Point vtx;
+    vtx.x = path2_iter->cell.coords.x;
+    vtx.y = path2_iter->cell.coords.y;
+    vtx.z = 0.0;
+    path_marker.points.push_back(vtx);
+
+    // Also push back cylinders
+    path_sph_mkr.pose.position.x = path2_iter->cell.coords.x;
+    path_sph_mkr.pose.position.y = path2_iter->cell.coords.y;
+    path_sph_mkr.id = path_marker_id;
+    path_marker_id++;
+    path_debug.markers.push_back(path_sph_mkr);
+  }
+  path_marker.id = path_marker_id;
+  path_debug.markers.push_back(path_marker);
+}
+
+int main(int argc, char **argv)
+/// The Main Function ///
+{
+  ROS_INFO("STARTING NODE: astar");
+
+  ros::init(argc, argv, "astar_node"); // register the node on ROS
+  ros::NodeHandle nh;                  // get a handle to ROS
+  ros::NodeHandle nh_("~");            // get a handle to ROS
+
+  //Get parameters associated with run, override defaults with ones from launch file
+  Params runParams(nh_);
+
+  //Get Obstacles map, this will throw errors so it's good to have here.
+  std::vector<map::Obstacle> obstacles_v = GetObstacles(runParams);
+
+  // Initialize grid_map outside
+  nav_msgs::OccupancyGrid grid_map;
+
+  // rviz representation of the grid
+  std::vector<int8_t> map;
+
+  // Init Marker Array
+  visualization_msgs::MarkerArray map_arr;    //PRM, main while(mw)
+  visualization_msgs::MarkerArray path_arr;   //PRM, Grid, mw
+  visualization_msgs::MarkerArray path_debug; //PRM, Grid, mw
+
   if (runParams.map_type == "prm")
   // PRM VERSION
   {
-    // Build PRM
-    map::PRM prm(obstacles_v, runParams.inflate);
-    prm.build_map(runParams.n, runParams.k, runParams.thresh);
-    // DRAW PRM
-    int prm_marker_id = 0;
-    auto configurations = prm.return_prm();
-    for (auto node_iter = configurations.begin(); node_iter != configurations.end(); node_iter++)
-    {
-      marker.points.clear();
-      marker.id = prm_marker_id;
-      prm_marker_id++;
-
-      // Check if a node has edges before plotting
-      if (node_iter->id_set.size() > 0)
-      {
-        for (auto id_iter = node_iter->id_set.begin(); id_iter != node_iter->id_set.end(); id_iter++)
-        {
-          // Add node as first marker vertex
-          geometry_msgs::Point first_vertex;
-          first_vertex.x = node_iter->coords.x;
-          first_vertex.y = node_iter->coords.y;
-          first_vertex.z = 0.0;
-          marker.points.push_back(first_vertex);
-
-          // Find Vertex for each ID
-          auto neighbor_iter = configurations.at(*id_iter);
-
-          geometry_msgs::Point new_vertex;
-          new_vertex.x = neighbor_iter.coords.x;
-          new_vertex.y = neighbor_iter.coords.y;
-          new_vertex.z = 0.0;
-          marker.points.push_back(new_vertex);
-
-          // Also push back cylinders
-          sph_mkr.pose.position.x = node_iter->coords.x;
-          sph_mkr.pose.position.y = node_iter->coords.y;
-          sph_mkr.id = prm_marker_id;
-          prm_marker_id++;
-          map_arr.markers.push_back(sph_mkr);
-        }
-        // Push to Marker Array
-        map_arr.markers.push_back(marker);
-      }
-    }
-
-    ROS_INFO("PRM Built!");
-
-    // PLAN on PRM using A* or Theta*
-    if (runParams.planner_type == "astar")
-    {
-      ROS_INFO("Planning using A*!");
-      global::Astar astar(obstacles_v, runParams.inflate);
-      path = astar.plan(runParams.start, runParams.goal, configurations);
-    }
-    else
-    {
-      ROS_INFO("Planning using Theta*!");
-      global::Thetastar theta_star(obstacles_v, runParams.inflate);
-      path = theta_star.plan(runParams.start, runParams.goal, configurations);
-      ROS_INFO("Planning using A*!");
-      global::Astar astar(obstacles_v, runParams.inflate);
-      path2 = astar.plan(runParams.start, runParams.goal, configurations);
-    }
-
-    // DRAW PATH
-    int path_marker_id = 0;
-    for (auto path_iter = path.begin(); path_iter != path.end(); path_iter++)
-    {
-      // Add node as marker vertex
-      geometry_msgs::Point vtx;
-      vtx.x = path_iter->vertex.coords.x;
-      vtx.y = path_iter->vertex.coords.y;
-      vtx.z = 0.0;
-      path_marker.points.push_back(vtx);
-
-      // Also push back cylinders
-      path_sph_mkr.pose.position.x = path_iter->vertex.coords.x;
-      path_sph_mkr.pose.position.y = path_iter->vertex.coords.y;
-      path_sph_mkr.id = path_marker_id;
-      path_marker_id++;
-      path_arr.markers.push_back(path_sph_mkr);
-    }
-    path_marker.id = path_marker_id;
-    path_arr.markers.push_back(path_marker);
-
-    // DRAW DEBUG PATH
-    path_marker_id = 0;
-    path_marker.points.clear();
-    path_marker.color.r = 1.0;
-    path_marker.color.g = 0.2;
-    path_marker.color.b = 0.2;
-    for (auto path2_iter = path2.begin(); path2_iter != path2.end(); path2_iter++)
-    {
-      // Add node as marker vertex
-      geometry_msgs::Point vtx;
-      vtx.x = path2_iter->vertex.coords.x;
-      vtx.y = path2_iter->vertex.coords.y;
-      vtx.z = 0.0;
-      path_marker.points.push_back(vtx);
-
-      // Also push back cylinders
-      path_sph_mkr.pose.position.x = path2_iter->vertex.coords.x;
-      path_sph_mkr.pose.position.y = path2_iter->vertex.coords.y;
-      path_sph_mkr.id = path_marker_id;
-      path_marker_id++;
-      path_debug.markers.push_back(path_sph_mkr);
-    }
-    path_marker.id = path_marker_id;
-    path_debug.markers.push_back(path_marker);
+    //This version takes a reference to runParams, does a check on k, possibly modifies it.
+    BuildPRM(runParams, obstacles_v, map_arr, path_arr, path_debug);
   }
   else
   // GRID Version
   {
-    // Initialize Grid
-    map::Grid grid(obstacles_v, runParams.inflate);
-
-    // Build Map
-    grid.build_map(runParams.resolution);
-
-    ROS_INFO("Grid Built!");
-
-    // Get map bounds
-    auto bounds = grid.return_map_bounds();
-    auto gridsize = grid.return_grid_dimensions();
-
-    // rviz representation of the grid
-    grid.occupancy_grid(map);
-
-    // Grid Pose
-    geometry_msgs::Pose map_pose;
-    map_pose.position.x = bounds.at(0).x;
-    map_pose.position.y = bounds.at(0).y;
-    map_pose.position.z = 0.0;
-    map_pose.orientation.x = 0.0;
-    map_pose.orientation.y = 0.0;
-    map_pose.orientation.z = 0.0;
-    map_pose.orientation.w = 1.0;
-
-    // Occupancy grid for visualization
-    grid_map.header.frame_id = runParams.frame_id;
-    grid_map.info.resolution = runParams.resolution;
-    grid_map.info.width = gridsize.at(0);
-    grid_map.info.height = gridsize.at(1);
-
-    // std::cout << "Width: " << gridsize.at(0) << "\t Height: " << gridsize.at(1) << std::endl;
-
-    grid_map.info.origin = map_pose;
-
-    ROS_INFO("Planning using A*!");
-    global::Astar astar(obstacles_v, runParams.inflate);
-    path = astar.plan(runParams.start, runParams.goal, grid, runParams.resolution);
-    path2 = path;
-
-    // DRAW PATH
-    int path_marker_id = 0;
-    for (auto path_iter = path.begin(); path_iter != path.end(); path_iter++)
-    {
-      // Add node as marker cell
-      geometry_msgs::Point vtx;
-      vtx.x = path_iter->cell.coords.x;
-      vtx.y = path_iter->cell.coords.y;
-      vtx.z = 0.0;
-      path_marker.points.push_back(vtx);
-
-      // Also push back cylinders
-      path_sph_mkr.pose.position.x = path_iter->cell.coords.x;
-      path_sph_mkr.pose.position.y = path_iter->cell.coords.y;
-      path_sph_mkr.id = path_marker_id;
-      path_marker_id++;
-      path_arr.markers.push_back(path_sph_mkr);
-    }
-    path_marker.id = path_marker_id;
-    path_arr.markers.push_back(path_marker);
-
-    // DRAW DEBUG PATH
-    path_marker_id = 0;
-    path_marker.points.clear();
-    path_marker.color.r = 1.0;
-    path_marker.color.g = 0.2;
-    path_marker.color.b = 0.2;
-    for (auto path2_iter = path2.begin(); path2_iter != path2.end(); path2_iter++)
-    {
-      // Add node as marker cell
-      geometry_msgs::Point vtx;
-      vtx.x = path2_iter->cell.coords.x;
-      vtx.y = path2_iter->cell.coords.y;
-      vtx.z = 0.0;
-      path_marker.points.push_back(vtx);
-
-      // Also push back cylinders
-      path_sph_mkr.pose.position.x = path2_iter->cell.coords.x;
-      path_sph_mkr.pose.position.y = path2_iter->cell.coords.y;
-      path_sph_mkr.id = path_marker_id;
-      path_marker_id++;
-      path_debug.markers.push_back(path_sph_mkr);
-    }
-    path_marker.id = path_marker_id;
-    path_debug.markers.push_back(path_marker);
+    BuildGrid(runParams, obstacles_v, map, grid_map, path_arr, path_debug);
   }
 
-  ros::Rate rate(runParams.frequency);
+  // Init Marker Array Publisher
+  ros::Publisher map_pub = nh.advertise<visualization_msgs::MarkerArray>("prm", 1);
+  ros::Publisher path_pub = nh.advertise<visualization_msgs::MarkerArray>("path", 1);
+  ros::Publisher debug_pub = nh.advertise<visualization_msgs::MarkerArray>("path_debug", 1);
+  ros::Publisher grid_pub = nh.advertise<nav_msgs::OccupancyGrid>("grid_map", 1);
 
+  ros::Rate rate(runParams.frequency); //tick time = this + comp time
   // Main While
   while (ros::ok())
   {
@@ -446,6 +488,5 @@ int main(int argc, char **argv)
     debug_pub.publish(path_debug);
     rate.sleep();
   }
-
   return 0;
 }
