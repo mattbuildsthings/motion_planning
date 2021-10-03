@@ -1,5 +1,5 @@
 # NOTE: coordinates in cell #s, choose to convert to m/cm/mm later
 # MUST BE DOUBLES
 # Each iten is x,y
-start: [5.0,  7.5]
-goal:  [31.5, 36.0]
+start: [2.0,  2.5]
+goal:  [2.0, 46.0]
