@@ -1,6 +1,3 @@
-#include <nav_msgs/OccupancyGrid.h>
-#include "nuslam/TurtleMap.h"
-#include <visualization_msgs/MarkerArray.h>
 #include "GPlanUtilities.hpp"
 
 namespace GPlanUtilities

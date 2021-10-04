@@ -1,7 +1,10 @@
-#include <vector>
-#include "map/map.hpp"
-#include <ros/ros.h>
+#ifndef GPLAN_UTILITIES_INCLUDE_GUARD_HPP
+#define GPLAN_UTILITIES_INCLUDE_GUARD_HPP
 #include "global_planner/heuristic.hpp"
+#include "map/map.hpp"
+#include <nav_msgs/OccupancyGrid.h>
+#include "nuslam/TurtleMap.h"
+#include <visualization_msgs/MarkerArray.h>
 
 namespace GPlanUtilities
 {
@@ -75,3 +78,4 @@ namespace GPlanUtilities
                    visualization_msgs::MarkerArray &path_arr, //PRM, Grid, mw
                    visualization_msgs::MarkerArray &path_debug);
 }
+#endif
