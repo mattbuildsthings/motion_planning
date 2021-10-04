@@ -132,11 +132,13 @@ include_directories(
   ${Eigen3_INCLUDE_DIRS}
 )
 
+#MJS: Added GPlanUtilities here
 add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/${PROJECT_NAME}.cpp
   src/${PROJECT_NAME}/heuristic.cpp
   src/${PROJECT_NAME}/incremental.cpp
   src/${PROJECT_NAME}/potential_field.cpp
+  src/${PROJECT_NAME}/GPlanUtilities.cpp
 )
 
 ## Add cmake target dependencies of the library
