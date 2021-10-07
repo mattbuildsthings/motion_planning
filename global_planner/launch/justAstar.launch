@@ -1,0 +1,18 @@
+<launch>
+  <!-- PRM with A*/Thetastar Node -->
+  <node name="astar" pkg="global_planner" type="astar" output="screen">
+    <rosparam command="load" file="$(find map)/config/map.yaml"/>
+    <rosparam command="load" file="$(find global_planner)/config/path.yaml"/>
+    <param name="n" value="300"/>
+    <param name="k" value="10"/>
+    <param name="thresh" value="0.1"/>
+    <param name="inflate" value="0.1"/>
+    <param name="planner" value="thetastar"/>
+    <remap from="line_map" to="line_prm"/>
+    <remap from="sph_map" to="sph_prm"/>
+    <param name="scale" value="10.0"/>
+    <param name="resolution" value="0.03"/>
+    <param name="map_type" value="prm"/>
+  </node>
+
+</launch>

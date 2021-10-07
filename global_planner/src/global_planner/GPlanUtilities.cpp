@@ -116,6 +116,7 @@ namespace GPlanUtilities
         path_sph_mkr.color.b = 0.0f;
     }
 
+    //This is several methods in one I think
     void BuildPRM(GPlanUtilities::Params &runParams, const std::vector<map::Obstacle> &obstacles_v,
                   visualization_msgs::MarkerArray &map_arr,  //PRM, main while(mw)
                   visualization_msgs::MarkerArray &path_arr, //PRM, Grid, mw
@@ -135,8 +136,9 @@ namespace GPlanUtilities
         InitMarkers(marker, sph_mkr, path_marker, path_sph_mkr, runParams);
 
         // Build PRM
-        //PRM inherits from Map, constructor finds the bounds of the map
+        //PRM inherits from Map, constructor finds the bounds of the map 
         map::PRM prm(obstacles_v, runParams.inflate);
+        //This populates the configurations using the obstacles
         prm.build_map(runParams.n, runParams.k, runParams.thresh);
 
         // DRAW PRM
