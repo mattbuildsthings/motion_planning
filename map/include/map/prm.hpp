@@ -4,7 +4,6 @@
 /// \brief PRM Library to build a Probabilistic Roadmap.
 #include <map/map.hpp>
 #include <unordered_set>
-#include <unordered_map>
 
 namespace map
 {
@@ -56,7 +55,8 @@ namespace map
     /// \brief stores Obstacle(s) to construct basic PRM. Inherits from Map in map.hpp.
     class PRM : public Map
     {
-        // Inherits Constructors
+        //Inherits Constructors, see https://stackoverflow.com/questions/347358/inheriting-constructors.
+        //This is a C++ 11 feature and pulls in ALL the constructors
         using Map::Map;
 
     public:
@@ -99,12 +99,15 @@ namespace map
         // \param inflate_robot: approximate robot radius used for collision checking.
         bool no_collision(const Vertex & q, const Vertex & q_prime, const double & inflate_robot);
 
+        //A friend function of a class is defined outside that class' scope but it has the right to access all private and protected members of the class.
+        // Not 100% sure why these are friends yet 
         // \brief computes the shortest distance from a line to a point and returns the result in an informative struct.
         // \param E1: the first Vertex forming an edge
         // \param E2: the second Vertex forming an edge
         // \param P0: the Vertex whose closeness is being examined.
         // \param inflate_robot: approximate robot radius used for collision checking.
         // \returns ShortestDistance struct
+        
         friend ShortestDistance lineToPoint(const Vertex & E1, const Vertex & E2, const Vertex & P0, const double & inflate_robot);
 
         // \brief Checks whether a potential Vertex lies on an Obstacle. 'map::PRM::sample_configurations' calls this function.
