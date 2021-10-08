@@ -42,7 +42,7 @@ namespace map
 			// Step 11: start inner loop for validity check
 			for (auto id_iter = knn.begin(); id_iter != knn.end(); id_iter++)
 			{
-				// Search for Vertex of corresponding ID
+				// Search for Vertex of corresponding ID from knn
 				auto neighbor_ptr = &configurations.at(id_iter->id);
 
 				// Step 12: perform validity check
@@ -112,16 +112,21 @@ namespace map
 		configs.reserve(configurations.size());
 		for (auto q_iter = configurations.begin(); q_iter != configurations.end(); q_iter++)
 		{
+			//This is a way to copy.
 			configs.push_back(*q_iter);
 		}
 		// using lambda for sort criterion. put q in [q] so it can be accessed
+		//This is has 3 statements. The first uses the 2 norm of the vector between q and 2 points rhs and lhs
+		//I think rhs, lhs is arbitrary. The other 2 check to make sure the points aren't q, which will happen
+		//since q E configs.
 		sort(configs.begin(), configs.end(), [q](const Vertex &lhs, const Vertex &rhs)
 			 { return euclidean_distance(q.coords.x - lhs.coords.x, q.coords.y - lhs.coords.y) < euclidean_distance(q.coords.x - rhs.coords.x, q.coords.y - rhs.coords.y) and lhs.id != q.id and rhs.id != q.id; });
 
+		//At this point you have a sorted listed of all the configs relative to q, just pull k of them and return.
 		// Now, assign IDs of first k elements
 		std::vector<Vertex> knn;
 		for (int i = 0; i < k; i++)
-		{
+		{	//push pack the copies from configs, they have the right ids in them
 			knn.push_back(configs.at(i));
 		}
 
@@ -417,9 +422,9 @@ namespace map
 
 		auto shrt = lineToPoint(E1, E2, P0);
 
-		if (shrt.u >= 0.0 and shrt.u <= 1.0)
+		if (shrt.u >= 0.0 and shrt.u <= 1.0)//When does this happen?
 		{
-			// the Polygon Vertex is somwhere on the segment, so analysis check is valid
+			// the Polygon Vertex is somewhere on the segment, so analysis check is valid
 			// get distance to closest point
 			Eigen::Vector2d dist(P3(0) - shrt.point.x, P3(1) - shrt.point.y);
 
@@ -433,7 +438,7 @@ namespace map
 
 		return false;
 	}
-
+	//TODO: move out of here, doesn't access members. This is a utilitiy function.
 	ShortestDistance lineToPoint(const Vertex &E1, const Vertex &E2, const Vertex &P0)
 	{
 		// Declare struct for storage
