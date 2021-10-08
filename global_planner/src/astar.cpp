@@ -11,18 +11,6 @@
 #include <visualization_msgs/MarkerArray.h>
 #include "GPlanUtilities.hpp"
 
-// #include <math.h>
-// #include <string>
-// #include <vector>
-// #include "map/map.hpp"
-// #include "map/prm.hpp"
-// #include "map/grid.hpp"
-// #include <functional> // To use std::bind
-//#include <visualization_msgs/Marker.h>
-// #include <geometry_msgs/Point.h>
-// // // Used to deal with YAML list of lists
-//  #include <xmlrpcpp/XmlRpcValue.h> // catkin component
-
 int main(int argc, char **argv)
 /// The Main Function ///
 {
@@ -44,7 +32,7 @@ int main(int argc, char **argv)
   // rviz representation of the grid
   std::vector<int8_t> map;
 
-  // Init Marker Array
+  // Init Marker Array                          USED IN:
   visualization_msgs::MarkerArray map_arr;    //PRM, main while(mw)
   visualization_msgs::MarkerArray path_arr;   //PRM, Grid, mw
   visualization_msgs::MarkerArray path_debug; //PRM, Grid, mw
