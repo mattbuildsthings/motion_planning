@@ -8,6 +8,7 @@ namespace map
 	{
 		coords = coords_;
 
+		//resolution is dx, dx/2 is halfway between the 2 points.
 		double offset = resolution_ / 2.0;
 
 		center_coords = Vector2D(coords.x + offset, coords.y + offset);
@@ -17,17 +18,18 @@ namespace map
 	void Grid::build_map(const double & resolution)
 	{
 		// Step 1. divide grid into cells based on resolution and store in class members
-		xcells = arange<double>(map_min.x, map_max.x, resolution);
-		ycells = arange<double>(map_min.y, map_max.y, resolution);
+		// x = (map_min.x : resolution : map_max.x)[1:end - 1] <-- cuts off end val
+		m_xcells = arange<double>(map_min.x, map_max.x, resolution);
+		m_ycells = arange<double>(map_min.y, map_max.y, resolution);
 
-		// Step 2. Populate Cell vector (cells) with world coordinates and labels in row-major-order
-		for (int i = 0; i < static_cast<int>(ycells.size()); i++)
+		// Step 2. Populate Cell vector (cells) with world coordinates and labels in row-major-order (a11, ..., a1n, a21, ..., a2n)
+		for (size_t i = 0; i < m_ycells.size(); i++)
 		{
-			for (int j = 0; j < static_cast<int>(xcells.size()); j++)
+			for (size_t j = 0; j < m_xcells.size(); j++)
 			{
 				// std::cout << "[" << j << ", " << i << "]" << std::endl;
 				// For each cell to be added, convert the grid index to world coords
-				Cell cell(Vector2D(xcells.at(j), ycells.at(i)), resolution);
+				Cell cell(Vector2D(m_xcells.at(j), m_ycells.at(i)), resolution);
 
 				// Perform inside-obstacle check for labeling Obstacle
 				if (!not_inside(Vertex(cell.center_coords), obstacles, 0.0))
@@ -40,17 +42,18 @@ namespace map
 					cell.celltype = Inflation;
 					// std::cout << "INFLATED: [" << cell.center_coords.x << ", " << cell.center_coords.y << "]" << std::endl;
 				}
-				cells.push_back(cell);
+				m_cells.push_back(cell);
 			}
 		}
 
 		// Populate more cell information such as row-major order and grid index
-		for(unsigned int i = 0; i < cells.size(); i++)
+		//TODO: Fix all these CASTS! Just use size_t, you don't need negative numbers for indexing!
+		for(size_t i = 0; i < m_cells.size(); i++)
 		{
 			// Convert from row-major-order to grid coordinates
-			auto index = rowmajor2grid(i, static_cast<int>(xcells.size()));
+			auto index = rowmajor2grid(i, static_cast<int>(m_xcells.size()));
 			// Convert back to rmj
-			int rmj = grid2rowmajor(index.x, index.y, static_cast<int>(xcells.size()));
+			int rmj = grid2rowmajor(index.x, index.y, static_cast<int>(m_xcells.size()));
 			index.row_major = rmj;
 
 			if (!(rmj == static_cast<int>(i)))
@@ -59,12 +62,12 @@ namespace map
 										 \n  where(): Grid::build_map(const double & resolution)");
 			}
 
-			cells.at(i).index = index;
+			m_cells.at(i).index = index;
 
 			// Set fake_grid to same cells but all free
-			Cell fake_cell = cells.at(i);
+			Cell fake_cell = m_cells.at(i);
 			fake_cell.celltype = Free;
-			fake_grid.push_back(fake_cell);
+			m_fake_grid.push_back(fake_cell);
 		}
 	}
 
@@ -72,9 +75,9 @@ namespace map
 	{
 		// Get x coordinate
 		int x_index = -1;
-		for (int i = 0; i < static_cast<int>(xcells.size()); i++)
+		for (int i = 0; i < static_cast<int>(m_xcells.size()); i++)
 		{
-			if (cell.center_coords.x >= xcells.at(i) and cell.center_coords.x < xcells.at(i) + cell.resolution)
+			if (cell.center_coords.x >= m_xcells.at(i) and cell.center_coords.x < m_xcells.at(i) + cell.resolution)
 			{
 				x_index = i;
 			}
@@ -82,9 +85,9 @@ namespace map
 
 		// Get x coordinate
 		int y_index = -1;
-		for (int j = 0; j < static_cast<int>(ycells.size()); j++)
+		for (int j = 0; j < static_cast<int>(m_ycells.size()); j++)
 		{
-			if (cell.center_coords.y >= ycells.at(j) and cell.center_coords.y < ycells.at(j) + cell.resolution)
+			if (cell.center_coords.y >= m_ycells.at(j) and cell.center_coords.y < m_ycells.at(j) + cell.resolution)
 			{
 				y_index = j;
 			}
@@ -98,17 +101,17 @@ namespace map
 		Index index;
 		index.x = x_index;
 		index.y = y_index;
-		index.row_major = grid2rowmajor(index.x, index.y, static_cast<int>(xcells.size()));
+		index.row_major = grid2rowmajor(index.x, index.y, static_cast<int>(m_xcells.size()));
 
 		return index;
 	}
 
 	Vector2D Grid::grid2world(const int & i, const int & j, const double & resolution) const
 	{
-		if (!(i >= 0 and i <= static_cast<int>(xcells.size()) - 1))
+		if (!(i >= 0 and i <= static_cast<int>(m_xcells.size()) - 1))
 		{
 			throw std::invalid_argument("cell's x coordinate out of bounds!");
-		} else if (!(j >= 0 and j <= static_cast<int>(ycells.size()) - 1))
+		} else if (!(j >= 0 and j <= static_cast<int>(m_ycells.size()) - 1))
 		{
 			throw std::invalid_argument("cell's y coordinate out of bounds!");
 		}
@@ -120,23 +123,23 @@ namespace map
 
 	std::vector<Cell> Grid::return_grid() const
 	{
-		return cells;
+		return m_cells;
 	}
 
 	void Grid::occupancy_grid(std::vector<int8_t> & map) const
 	{
-		map.resize(cells.size());
+		map.resize(m_cells.size());
 
-		for(unsigned int i = 0; i < cells.size(); i++)
+		for(unsigned int i = 0; i < m_cells.size(); i++)
 		{
 			// For each cell type, assign a value to map
-			if (cells.at(i).celltype == Free)
+			if (m_cells.at(i).celltype == Free)
 			{
 				map.at(i) = 0;
-			} else if (cells.at(i).celltype == Inflation)
+			} else if (m_cells.at(i).celltype == Inflation)
 			{
 				map.at(i) = 50;
-			} else if (cells.at(i).celltype == Occupied)
+			} else if (m_cells.at(i).celltype == Occupied)
 			{
 				map.at(i) = 100;
 			}
@@ -146,8 +149,8 @@ namespace map
 	std::vector<int> Grid::return_grid_dimensions() const
 	{
 		std::vector<int> v;
-		v.push_back(static_cast<int>(xcells.size()));
-		v.push_back(static_cast<int>(ycells.size()));
+		v.push_back(static_cast<int>(m_xcells.size()));
+		v.push_back(static_cast<int>(m_ycells.size()));
 		return v;
 	}
 
@@ -155,18 +158,18 @@ namespace map
 	void Grid::update_grid(const Cell & cc, const int & visibility)
 	{
 
-		std::vector<Cell> cells_to_update = get_neighbours(cc, cells, visibility);
+		std::vector<Cell> cells_to_update = get_neighbours(cc, m_cells, visibility);
 
 		for (auto iter = cells_to_update.begin(); iter < cells_to_update.end(); iter++)
 		{
-			if (fake_grid.at(iter->index.row_major).celltype != iter->celltype)
+			if (m_fake_grid.at(iter->index.row_major).celltype != iter->celltype)
 			{
 				// std::cout << "NEW OCCUPANCY: " << iter->index.row_major << std::endl;
-				fake_grid.at(iter->index.row_major).celltype = iter->celltype;
-				fake_grid.at(iter->index.row_major).newView = true;
+				m_fake_grid.at(iter->index.row_major).celltype = iter->celltype;
+				m_fake_grid.at(iter->index.row_major).newView = true;
 			} else
 			{
-				fake_grid.at(iter->index.row_major).newView = false;
+				m_fake_grid.at(iter->index.row_major).newView = false;
 			}
 		}
 	}
@@ -174,24 +177,24 @@ namespace map
 
 	std::vector<Cell> Grid::return_fake_grid() const
 	{
-		return fake_grid;
+		return m_fake_grid;
 	}
 
 
 	void Grid::fake_occupancy_grid(std::vector<int8_t> & map) const
 	{
-		map.resize(fake_grid.size());
+		map.resize(m_fake_grid.size());
 
-		for(unsigned int i = 0; i < fake_grid.size(); i++)
+		for(unsigned int i = 0; i < m_fake_grid.size(); i++)
 		{
 			// For each cell type, assign a value to map
-			if (fake_grid.at(i).celltype == Free)
+			if (m_fake_grid.at(i).celltype == Free)
 			{
 				map.at(i) = 0;
-			} else if (fake_grid.at(i).celltype == Inflation)
+			} else if (m_fake_grid.at(i).celltype == Inflation)
 			{
 				map.at(i) = 50;
-			} else if (fake_grid.at(i).celltype == Occupied)
+			} else if (m_fake_grid.at(i).celltype == Occupied)
 			{
 				map.at(i) = 100;
 			}

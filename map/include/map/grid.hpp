@@ -10,6 +10,7 @@ namespace map
     using rigid2d::Vector2D;
 
     // \brief stores indeces to acces elements in row-major order or grid-wise
+    //TODO: move to a structs  or utilities namespace
     struct Index{
         int row_major = -1;
         int x = -1;
@@ -17,18 +18,21 @@ namespace map
 
     };
 
+    //TODO: Move to an enum file
     enum CellType {Occupied, Inflation, Free};
 
     // \brief struct to store Cell paramters such as coordinates, center coordinates,
     // whether a cell has been visited, and the cell type (Start, Goal, Obstacle, Standard)
+    // TODO: Move to a structs or utilities namespace
     struct Cell{
 
         // \brief Cell constructor with input coordinates
+        //TODO: Just move the constructor implmentation here. It should be small anyway.
         Cell(const Vector2D & coords_, const double & resolution_);
 
         // Corner coordinates
         Vector2D coords;
-        // Centre coordinates
+        // Center coordinates
         Vector2D center_coords;
         bool visited = false;
         // Default Cell Type
@@ -99,6 +103,7 @@ namespace map
 
         // \brief Checks whether a potential Vertex lies on an Obstacle. 'map::PRM::sample_configurations' calls this function.
         // \param q: the Vertex being examined
+        //TODO: Move to utilities, this doesn't access any members
         friend bool not_inside(const Vertex & q, const std::vector<Obstacle> & obstacles, const double & inflate_robot);
 
         // \brief Checks if a Vertex is too close to an Edge.
@@ -106,16 +111,18 @@ namespace map
         // \param E2: the second Vertex forming an edge
         // \param P0: the Vertex whose closeness is being examined.
         // \param inflate_robot: approximate robot radius used for collision checking.
+        //TODO: Move to utilities, this doesn't access any members
         friend bool too_close(const Vertex & E1, const Vertex & E2, const Vertex & P0, const double & inflate_robot);
 
     private:
-        std::vector<Cell> cells;
-        std::vector<Cell> fake_grid;
-        std::vector<double> xcells;
-        std::vector<double> ycells;
+        std::vector<Cell> m_cells;
+        std::vector<Cell> m_fake_grid;
+        std::vector<double> m_xcells;
+        std::vector<double> m_ycells;
     };
 
     // \brief numpy arange in C++, can take any type T (int,double,etc)
+    //TODO: Move to Utilities Namespace
     template<typename T>
     std::vector<T> arange(const T & start, const T & stop, const T & step = 1)
     {
