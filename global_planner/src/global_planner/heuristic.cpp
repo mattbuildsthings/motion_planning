@@ -49,6 +49,7 @@ namespace global
         **/
 
 		// Create a Min heap of Nodes
+		// Order is Type, Container, Comparison Method
 		std::priority_queue<Node, std::vector<Node>, HeapComparator> open_list;
 
 		// Store the goal node
@@ -65,14 +66,14 @@ namespace global
 
 		open_list.push(current_node);
 
-		// For re-ordering and finding NOTE: inefficient
+		// For re-ordering and finding NOTE: inefficient. TODO: why is a set inefficient? should be hashtable, O(1)
 		std::set<int> open_list_v;
 		open_list_v.insert(current_node.id);
 
 		// Store the start node
 		Node start_node = current_node;
 
-		// Closed List
+		// Closed List, why less<void> for comparator?
 		std::set<Node, std::less<>> closed_list;
 
 		int iterations = 0;
@@ -177,6 +178,7 @@ namespace global
 			neighbour.parent_id = current_node.id;
 
 			// If this happens, we need to re-sort the open list
+			// TODO: There has to be a better way to do this. Seems like it defeats the purpose
 			std::priority_queue<Node, std::vector<Node>, HeapComparator> temp_open_list;
 			while (!open_list.empty())
 			{
@@ -611,6 +613,9 @@ namespace global
 		}
 	}
 
+	// TODO: This is pedantic, but init'ing a Vertex and assigning it when it becomes the min seems
+	// clearer to me, and the range based for loop not dealing with pointers also seems clearer.
+	// maybe you do this because you need a reference? Not sure.
 	Vertex find_nearest_node(const Vector2D &position, const std::vector<Vertex> &map)
 	{
 		double min_dist = map::euclidean_distance(position.x - map.at(0).coords.x, position.y - map.at(0).coords.y);

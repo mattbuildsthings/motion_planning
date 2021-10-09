@@ -40,7 +40,10 @@ namespace global
         double rhs = 1e12;
 
         // NOTE: gcost will be initialized to 1e12 (inf) for LPA* and D* Lite
-        double gcost, hcost, fcost = 0.0;
+        // gcost is to the node.
+        // hcost is cost from node to finish.
+        // fcost is total cost.
+        double gcost, hcost, fcost = 0.0;// Is this an overlooked init? It was done in other spots in the code base.
 
         // Store children for update using incremental gridmap
         std::vector<int> children_ids;
@@ -52,6 +55,7 @@ namespace global
     inline bool operator<(const int & id, const Node & n) { return id < n.id; }
     inline bool operator<(const Node & n1, const Node & n2) { return n1.id < n2.id; }
 
+    // Why functor? See https://stackoverflow.com/questions/2225643/in-c-what-does-it-mean-for-a-compiler-to-inline-a-function-object
     // \brief functor (function object) which compares the costs of two Nodes for heap sorting 
     class HeapComparator
     { 
